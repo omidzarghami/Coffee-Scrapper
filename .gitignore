@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+output/*
+!output/.gitkeep
+!output/seen.json
+*.log
+.DS_Store
