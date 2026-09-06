@@ -30,11 +30,13 @@ python main.py --list --max=8
 python main.py --max=1 --send
 ```
 
-GitHub Action هر روز ساعت `۰۸:۰۰` به وقت ایران (`04:30 UTC`) یک مقاله تازه می‌فرستد. Secrets لازم:
+GitHub Action هر روز ساعت `۰۸:۰۰` به وقت ایران (`04:30 UTC`) یک مقاله تازه می‌فرستد. Secrets ریپو از قبل تنظیم شده‌اند.
 
-- `GEMINI_API_KEY`
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHANNEL_ID`
+برای فعال شدن زمان‌بندی، فایل `daily-telegram.yml` را در گیت‌هاب به مسیر `.github/workflows/daily-telegram.yml` کپی کن:
+
+https://github.com/omidzarghami/Coffee-Scrapper/new/main?filename=.github/workflows/daily-telegram.yml
+
+بعد از ذخیره، از تب Actions می‌توانی با **Run workflow** یک ارسال تست بگیری.
 
 ## خروجی محلی
 
