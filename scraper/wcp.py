@@ -3,13 +3,14 @@ from __future__ import annotations
 import random
 import time
 import xml.etree.ElementTree as ET
-from dataclasses import asdict, dataclass
 from typing import Iterable
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
 from scraper.http import get
+from scraper.models import Article
+from scraper.tech import tech_score
 
 NEWS_SITEMAP = "https://www.worldcoffeeportal.com/sitemap-news"
 SOURCE_NAME_EN = "World Coffee Portal"
@@ -18,22 +19,6 @@ NS = {
     "sm": "http://www.sitemaps.org/schemas/sitemap/0.9",
     "news": "http://www.google.com/schemas/sitemap-news/0.9",
 }
-
-
-@dataclass
-class Article:
-    url: str
-    title: str
-    standfirst: str
-    public_text: str
-    image_url: str
-    published_at: str
-    tags: list[str]
-    source_en: str = SOURCE_NAME_EN
-    source_fa: str = SOURCE_NAME_FA
-
-    def to_dict(self) -> dict:
-        return asdict(self)
 
 
 def list_latest(limit: int = 20) -> list[dict[str, str]]:
@@ -54,9 +39,14 @@ def list_latest(limit: int = 20) -> list[dict[str, str]]:
                 "title": title.strip(),
                 "published_at": published.strip(),
                 "keywords": keywords.strip(),
+                "source": "wcp",
+                "tech_score": str(tech_score(title, keywords)),
             }
         )
-    items.sort(key=lambda row: row["published_at"], reverse=True)
+    items.sort(
+        key=lambda row: (int(row["tech_score"]), row["published_at"]),
+        reverse=True,
+    )
     return items[:limit]
 
 
@@ -75,7 +65,6 @@ def fetch_article(url: str) -> Article:
 
     tags = [_text(a) for a in soup.select(".c-topper__tag a") if _text(a)]
     public_text = _public_body(soup, standfirst)
-
     if image_url:
         image_url = urljoin(url, image_url)
 
@@ -87,6 +76,9 @@ def fetch_article(url: str) -> Article:
         image_url=image_url,
         published_at=published,
         tags=tags,
+        source_en=SOURCE_NAME_EN,
+        source_fa=SOURCE_NAME_FA,
+        tech_score=tech_score(title, standfirst, " ".join(tags), public_text),
     )
 
 
@@ -98,7 +90,7 @@ def fetch_new_articles(
     delay_max: float = 2.4,
 ) -> list[Article]:
     skip = {u.rstrip("/") for u in skip_urls}
-    listed = list_latest(limit=max(max_articles * 4, 12))
+    listed = list_latest(limit=max(max_articles * 6, 20))
     picked: list[Article] = []
     for item in listed:
         if len(picked) >= max_articles:
@@ -137,7 +129,6 @@ def _public_body(soup: BeautifulSoup, standfirst: str) -> str:
         seen.add(key)
         unique.append(para)
 
-    # Only the publicly visible teaser — not the paywalled remainder.
     teaser = unique[:3]
     if standfirst and standfirst.casefold() not in seen:
         teaser = [standfirst.strip(), *teaser][:3]

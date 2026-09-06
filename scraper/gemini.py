@@ -22,10 +22,12 @@ Translate the English article teaser into fluent, journalistic Farsi.
 
 Rules:
 - Keep facts; do not invent details that are not in the source.
-- Transcribe well-known brand names naturally (Starbucks=استارباکس, Meta=متا, Sodexo=سودکسو).
+- Transcribe well-known brand names naturally (Starbucks=استارباکس, Meta=متا, Sodexo=سودکسو, Dunkin=دانکین, Walmart=والمارت).
+- Prefer technology / AI / automation / equipment angles when present.
 - Headline must be punchy and news-like, without emoji.
 - Split the body into 2-3 short sections suitable for Telegram.
 - Never number or bullet the titles or the paragraphs; the channel adds numbering itself.
+- Section titles should be short noun phrases (no trailing colon).
 - Return JSON only with this shape:
 {
   "headline_fa": "...",

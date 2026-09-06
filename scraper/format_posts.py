@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from scraper.jalali import to_jalali_str
-from scraper.wcp import Article
+from scraper.models import Article
 
 TELEGRAM_LIMIT = 3900
 
@@ -14,7 +14,7 @@ def build_posts(article: Article, translation: dict[str, Any]) -> list[dict[str,
     preview = (
         f"☕ {headline}\n\n"
         f"📅 {jalali}\n"
-        f"🌐 {article.source_fa}\n\n"
+        f"📰 {article.source_fa}\n\n"
         f"👇 ادامه ترجمه در پیام بعد"
     )
     posts = [
@@ -28,7 +28,8 @@ def build_posts(article: Article, translation: dict[str, Any]) -> list[dict[str,
     ]
 
     for index, section in enumerate(translation["sections"], start=1):
-        chunk = f"📝 {index}- {section['title']}\n\n{section['text']}".strip()
+        title = section["title"].rstrip(":").strip()
+        chunk = f"📝 {index}- {title}:\n{section['text']}".strip()
         for piece in _split_telegram(chunk):
             posts.append({"kind": "body", "text": piece, "image_url": "", "button_label": "", "button_url": ""})
     return posts

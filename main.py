@@ -12,9 +12,9 @@ from rich.table import Table
 from scraper.format_posts import build_posts
 from scraper.gemini import GeminiError, translate_article
 from scraper.preview import write_preview
+from scraper.sources import fetch_article, fetch_new_articles, list_latest
 from scraper.store import SeenStore, save_json
 from scraper.telegram import TelegramError, send_posts
-from scraper.wcp import fetch_article, fetch_new_articles, list_latest
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / "output"
@@ -33,12 +33,19 @@ def _env_int(name: str, default: int) -> int:
 
 def cmd_latest(limit: int) -> None:
     rows = list_latest(limit=limit)
-    table = Table(title="آخرین اخبار ورلد کافی پورتال")
+    table = Table(title="آخرین اخبار قهوه (اولویت تکنولوژی)")
+    table.add_column("منبع")
+    table.add_column("تک")
     table.add_column("تاریخ")
     table.add_column("عنوان")
-    table.add_column("لینک")
     for row in rows:
-        table.add_row(row["published_at"][:10], row["title"], row["url"])
+        source = "GCR" if row.get("source") == "gcr" or "gcrmag.com" in row["url"] else "WCP"
+        table.add_row(
+            source,
+            row.get("tech_score") or "0",
+            (row.get("published_at") or "")[:10] or "—",
+            row["title"][:70],
+        )
     console.print(table)
 
 
@@ -47,7 +54,6 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
     delay_max = _env_float("DELAY_MAX", 2.4)
     seen = SeenStore(OUTPUT / "seen.json")
     skip = [] if force or url else seen.urls
-    # seen.json tracks what the channel already received, so preview runs must not consume it.
     published = send and not dry_run
 
     if url:
@@ -58,6 +64,7 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
             skip_urls=skip,
             delay_min=delay_min,
             delay_max=delay_max,
+            prefer_tech=True,
         )
 
     if not articles:
@@ -65,10 +72,17 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
         return 0
 
     table = Table(title=f"{len(articles)} مقاله")
+    table.add_column("منبع")
+    table.add_column("تک")
     table.add_column("عنوان")
     table.add_column("تاریخ")
     for article in articles:
-        table.add_row(article.title, article.published_at[:10] or "—")
+        table.add_row(
+            article.source_fa or article.source_en,
+            str(article.tech_score),
+            article.title,
+            article.published_at[:10] or "—",
+        )
     console.print(table)
 
     results: list[dict] = []
@@ -102,7 +116,6 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
                 except TelegramError as exc:
                     console.print(f"[red]ارسال تلگرام ناموفق:[/red] {exc}")
                     if exc.sent:
-                        # Part of the thread is already public; resending would duplicate it.
                         seen.add(article.url)
                         seen.persist()
                     return 1
@@ -135,10 +148,10 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="اسکرپ اخبار قهوه از World Coffee Portal و ترجمه فارسی با Gemini رایگان."
+        description="اسکرپ اخبار قهوه (Global Coffee Report + World Coffee Portal) و ترجمه فارسی با Gemini."
     )
     parser.add_argument("--list", action="store_true", help="فقط فهرست آخرین تیترها")
-    parser.add_argument("--max", "--count", dest="max_articles", type=int, default=0, help="تعداد مقاله (پیش‌فرض MAX_ARTICLES)")
+    parser.add_argument("--max", "--count", dest="max_articles", type=int, default=0, help="تعداد مقاله")
     parser.add_argument("--force", action="store_true", help="حتی مقالات قبلی را دوباره ترجمه کن")
     parser.add_argument("--dry-run", action="store_true", help="فقط اسکرپ؛ بدون Gemini")
     parser.add_argument("--url", default="", help="ترجمه یک لینک مشخص")
