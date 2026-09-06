@@ -24,15 +24,19 @@ Rules:
 - Keep facts; do not invent details that are not in the source.
 - Transcribe well-known brand names naturally (Starbucks=استارباکس, Meta=متا, Sodexo=سودکسو).
 - Headline must be punchy and news-like, without emoji.
-- Split the body into short numbered news sections suitable for Telegram.
+- Split the body into 2-3 short sections suitable for Telegram.
+- Never number or bullet the titles or the paragraphs; the channel adds numbering itself.
 - Return JSON only with this shape:
 {
   "headline_fa": "...",
   "sections": [
-    {"title": "short section title without number", "text": "1-3 Farsi paragraphs"}
+    {"title": "short section title", "text": "1-3 Farsi paragraphs separated by a blank line"}
   ]
 }
 """
+
+# Gemini keeps prefixing list markers even when told not to.
+LIST_MARKER = re.compile(r"^\s*(?:[-–—•*]|\(?\d{1,2}\)?[.)\-–]?)\s+")
 
 
 class GeminiError(RuntimeError):
@@ -113,10 +117,18 @@ def _parse_json(text: str) -> dict[str, Any]:
     for item in sections:
         if not isinstance(item, dict):
             continue
-        title = (item.get("title") or "").strip()
-        body = (item.get("text") or "").strip()
+        title = _strip_markers(item.get("title") or "")
+        body = "\n\n".join(
+            _strip_markers(line)
+            for line in (item.get("text") or "").splitlines()
+            if line.strip()
+        )
         if title and body:
             normalized.append({"title": title, "text": body})
     if not normalized:
         raise GeminiError("Gemini JSON has no usable sections")
-    return {"headline_fa": headline, "sections": normalized}
+    return {"headline_fa": _strip_markers(headline), "sections": normalized}
+
+
+def _strip_markers(text: str) -> str:
+    return LIST_MARKER.sub("", text.strip()).strip()

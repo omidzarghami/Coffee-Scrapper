@@ -4,7 +4,6 @@ import random
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass
-from datetime import datetime
 from typing import Iterable
 from urllib.parse import urljoin
 
@@ -156,12 +155,3 @@ def _text(node) -> str:
 
 def _attr(node, name: str) -> str:
     return (node.get(name) or "").strip() if node else ""
-
-
-def parse_published(value: str) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None

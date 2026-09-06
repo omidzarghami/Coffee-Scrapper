@@ -25,9 +25,6 @@ class SeenStore:
     def urls(self) -> set[str]:
         return set(self._urls)
 
-    def contains(self, url: str) -> bool:
-        return url.rstrip("/") in self._urls or url in self._urls
-
     def add(self, url: str) -> None:
         self._urls.add(url.rstrip("/"))
 

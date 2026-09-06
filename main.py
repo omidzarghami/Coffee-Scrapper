@@ -47,6 +47,8 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
     delay_max = _env_float("DELAY_MAX", 2.4)
     seen = SeenStore(OUTPUT / "seen.json")
     skip = [] if force or url else seen.urls
+    # seen.json tracks what the channel already received, so preview runs must not consume it.
+    published = send and not dry_run
 
     if url:
         articles = [fetch_article(url)]
@@ -99,6 +101,10 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
                     console.print("[green]ارسال شد به تلگرام[/green]")
                 except TelegramError as exc:
                     console.print(f"[red]ارسال تلگرام ناموفق:[/red] {exc}")
+                    if exc.sent:
+                        # Part of the thread is already public; resending would duplicate it.
+                        seen.add(article.url)
+                        seen.persist()
                     return 1
 
         record = {
@@ -107,13 +113,15 @@ def cmd_run(*, limit: int, force: bool, dry_run: bool, url: str, send: bool) -> 
             "posts": posts,
         }
         results.append(record)
-        seen.add(article.url)
+        if published:
+            seen.add(article.url)
         console.print(f"[green]آماده[/green] {article.title}")
 
     if not results:
         return 1
 
-    seen.persist()
+    if published:
+        seen.persist()
     save_json(OUTPUT / "articles.json", results)
     write_preview(OUTPUT / "telegram-board.html", results)
     for record in results:

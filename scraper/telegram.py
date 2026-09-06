@@ -10,7 +10,9 @@ PHOTO_CAPTION_LIMIT = 1024
 
 
 class TelegramError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, sent: int = 0) -> None:
+        super().__init__(message)
+        self.sent = sent
 
 
 def send_posts(
@@ -18,12 +20,14 @@ def send_posts(
     *,
     token: str | None = None,
     chat_id: str | None = None,
-) -> None:
+) -> int:
+    """Publish every post and return how many reached the channel."""
     token = (token or os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
     chat_id = (chat_id or os.getenv("TELEGRAM_CHANNEL_ID") or "").strip()
     if not token or not chat_id:
         raise TelegramError("TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID is missing.")
 
+    sent = 0
     for index, post in enumerate(posts):
         if index:
             time.sleep(1.0)
@@ -45,20 +49,26 @@ def send_posts(
                         **({"reply_markup": markup} if markup else {}),
                     },
                 )
+                sent += 1
                 continue
             except TelegramError:
                 text = f"{text}\n\n{image_url}"
 
-        _api(
-            token,
-            "sendMessage",
-            {
-                "chat_id": chat_id,
-                "text": text[:4096],
-                "disable_web_page_preview": True,
-                **({"reply_markup": markup} if markup else {}),
-            },
-        )
+        try:
+            _api(
+                token,
+                "sendMessage",
+                {
+                    "chat_id": chat_id,
+                    "text": text[:4096],
+                    "disable_web_page_preview": True,
+                    **({"reply_markup": markup} if markup else {}),
+                },
+            )
+        except TelegramError as exc:
+            raise TelegramError(str(exc), sent=sent) from exc
+        sent += 1
+    return sent
 
 
 def _keyboard(label: str, url: str) -> dict[str, Any]:
